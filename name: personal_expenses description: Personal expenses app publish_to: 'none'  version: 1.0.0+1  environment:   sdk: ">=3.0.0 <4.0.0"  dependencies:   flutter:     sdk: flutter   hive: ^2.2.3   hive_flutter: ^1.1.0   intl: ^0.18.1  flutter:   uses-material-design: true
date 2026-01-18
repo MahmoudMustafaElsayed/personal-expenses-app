@@ -1,0 +1,150 @@
+import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:intl/intl.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Hive.initFlutter();
+  await Hive.openBox('app');
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'مصروفاتي',
+      theme: ThemeData(fontFamily: 'Roboto'),
+      home: const NameScreen(),
+    );
+  }
+}
+
+class NameScreen extends StatefulWidget {
+  const NameScreen({super.key});
+  @override
+  State<NameScreen> createState() => _NameScreenState();
+}
+
+class _NameScreenState extends State<NameScreen> {
+  final nameController = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(title: const Text('تسجيل الاسم')),
+        body: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'اسمك'),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () async {
+                  if (nameController.text.isNotEmpty) {
+                    Hive.box('app').put('name', nameController.text);
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (_) => const HomeScreen()),
+                    );
+                  }
+                },
+                child: const Text('دخول'),
+              )
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  double income = 0;
+  double expense = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    income = Hive.box('app').get('income', defaultValue: 0);
+    expense = Hive.box('app').get('expense', defaultValue: 0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final name = Hive.box('app').get('name', defaultValue: '');
+
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(title: Text('مرحباً $name')),
+        body: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Text('الدخل: $income'),
+              Text('المصروف: $expense'),
+              Text('الرصيد: ${income - expense}'),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () => _addAmount(true),
+                child: const Text('إضافة دخل'),
+              ),
+              ElevatedButton(
+                onPressed: () => _addAmount(false),
+                child: const Text('إضافة مصروف'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _addAmount(bool isIncome) async {
+    final controller = TextEditingController();
+    await showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(isIncome ? 'دخل جديد' : 'مصروف جديد'),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(labelText: 'المبلغ'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              final value = double.tryParse(controller.text) ?? 0;
+              setState(() {
+                if (isIncome) {
+                  income += value;
+                  Hive.box('app').put('income', income);
+                } else {
+                  expense += value;
+                  Hive.box('app').put('expense', expense);
+                }
+              });
+              Navigator.pop(context);
+            },
+            child: const Text('حفظ'),
+          )
+        ],
+      ),
+    );
+  }
+}
